@@ -7,19 +7,30 @@ import { connectDB } from "./services/mongo.js";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+app.use(
+  cors({
+    origin: "http://localhost:5173", // your frontend URL
+  }),
+);
+
 app.use(express.json());
 const PORT = process.env.PORT || 3001;
 
-await connectDB();
+try {
+  await connectDB();
 
-app.use("/api", ingestRouter);
-app.use("/api", queryRouter);
+  app.use("/api", ingestRouter);
+  app.use("/api", queryRouter);
 
-app.get("/", (req, res) => {
-  res.send("Hello, World!");
-});
+  app.get("/", (req, res) => {
+    res.send("Hello, World!");
+  });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+} catch (err) {
+  console.error("Server startup failed:", err);
+  process.exit(1);
+}

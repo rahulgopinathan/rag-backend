@@ -10,9 +10,19 @@ export const embeddings = new OpenAIEmbeddings({
 });
 
 export async function embedText(text) {
-  return await embeddings.embedQuery(text);
+  try {
+    return await embeddings.embedQuery(text);
+  } catch (err) {
+    console.error("Embedding query failed:", err);
+    throw new Error("Failed to embed query text");
+  }
 }
 
 export async function embedBatch(texts) {
-  return await embeddings.embedDocuments(texts);
+  try {
+    return await embeddings.embedDocuments(texts);
+  } catch (err) {
+    console.error("Embedding batch failed:", err);
+    throw new Error("Failed to embed documents batch");
+  }
 }

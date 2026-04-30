@@ -32,30 +32,36 @@ User question: "${query}"
 
 Answer:`;
 
-  const response = await llm.invoke(decisionPrompt);
-  const decision = response.content.trim().toUpperCase();
-  return decision.includes("RETRIEVE") ? "RETRIEVE" : "GENERAL";
+  try {
+    const response = await llm.invoke(decisionPrompt);
+    const decision = response.content.trim().toUpperCase();
+    return decision.includes("RETRIEVE") ? "RETRIEVE" : "GENERAL";
+  } catch (err) {
+    console.error("Decision step failed:", err);
+    throw new Error("Failed to decide whether to retrieve context");
+  }
 }
 
 /**
  * Step 2a: Answer using retrieved context (RAG)
  */
 async function answerWithRetrieval(query) {
-  const chunks = await vectorSearch(query, 3);
+  try {
+    const chunks = await vectorSearch(query, 3);
 
-  if (chunks.length === 0) {
-    return {
-      answer: "I couldn't find relevant information in the knowledge base.",
-      sources: [],
-      tool: "searchDocs",
-    };
-  }
+    if (chunks.length === 0) {
+      return {
+        answer: "I couldn't find relevant information in the knowledge base.",
+        sources: [],
+        tool: "searchDocs",
+      };
+    }
 
-  const context = chunks
-    .map((c, i) => `[Source ${i + 1}: ${c.source}]\n${c.text}`)
-    .join("\n\n");
+    const context = chunks
+      .map((c, i) => `[Source ${i + 1}: ${c.source}]\n${c.text}`)
+      .join("\n\n");
 
-  const ragPrompt = `You are a helpful assistant. Answer the user's question using ONLY the context provided below. If the context doesn't contain the answer, say so honestly.
+    const ragPrompt = `You are a helpful assistant. Answer the user's question using ONLY the context provided below. If the context doesn't contain the answer, say so honestly.
 
 Context:
 ${context}
@@ -64,36 +70,49 @@ Question: ${query}
 
 Answer:`;
 
-  const response = await llm.invoke(ragPrompt);
-
-  return {
-    answer: response.content,
-    sources: chunks,
-    tool: "searchDocs",
-  };
+    const response = await llm.invoke(ragPrompt);
+    return {
+      answer: response.content,
+      sources: chunks,
+      tool: "searchDocs",
+    };
+  } catch (err) {
+    console.error("Retrieval answer step failed:", err);
+    throw new Error("Failed to answer query with retrieval");
+  }
 }
 
 /**
  * Step 2b: Answer from general knowledge (no retrieval)
  */
 async function answerGeneral(query) {
-  const response = await llm.invoke(query);
-  return {
-    answer: response.content,
-    sources: [],
-    tool: "generalKnowledge",
-  };
+  try {
+    const response = await llm.invoke(query);
+    return {
+      answer: response.content,
+      sources: [],
+      tool: "generalKnowledge",
+    };
+  } catch (err) {
+    console.error("General answer step failed:", err);
+    throw new Error("Failed to answer query from general knowledge");
+  }
 }
 
 /**
- * Main agent entry point - decides and dispatches
+ * Main agent entry point - decides and dispatches.
  */
 export async function runAgent(query) {
-  const decision = await decideAction(query);
+  try {
+    const decision = await decideAction(query);
 
-  if (decision === "RETRIEVE") {
-    return await answerWithRetrieval(query);
-  } else {
-    return await answerGeneral(query);
+    if (decision === "RETRIEVE") {
+      return await answerWithRetrieval(query);
+    } else {
+      return await answerGeneral(query);
+    }
+  } catch (err) {
+    console.error("Agent execution failed:", err);
+    throw new Error("Agent failed to complete the query");
   }
 }
